@@ -6,12 +6,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -21,11 +21,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import com.example.multipartjetpackcompose.ui.ImagePickerViewModel
 import com.example.multipartjetpackcompose.ui.theme.MultipartJetpackComposeTheme
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
+import java.io.FileOutputStream
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,11 +41,22 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val viewModel: ImagePickerViewModel = viewModel()
+                    val viewModel: ImagePickerViewModel =
+                        viewModel(factory = ViewModelProvider.Factory)
                     val imageUiState = viewModel.imageState.collectAsState()
                     ImageSelectionUi(onButtonClick = {
                         viewModel.updateImageUri(it)
-                    }, imageStateUi = imageUiState.value)
+
+                    }, imageStateUi = imageUiState.value, uploadImage = {
+                        val filesDir = applicationContext.filesDir
+                        val file = File(filesDir, "Image.png")
+                        val inputStream =
+                            contentResolver.openInputStream(imageUiState.value.imageUri!!)
+                        val outPutStream = FileOutputStream(file)
+                        inputStream?.copyTo(outPutStream)
+                        viewModel.uploadImage(file)
+
+                    })
                 }
             }
         }
@@ -52,6 +67,7 @@ class MainActivity : ComponentActivity() {
 fun ImageSelectionUi(
     modifier: Modifier = Modifier,
     onButtonClick: (Uri) -> Unit,
+    uploadImage: () -> Unit,
     imageStateUi: ImageStateUi
 ) {
 
@@ -74,9 +90,12 @@ fun ImageSelectionUi(
         AsyncImage(
             model = imageStateUi.imageUri,
             contentDescription = null,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.size(150.dp),
             contentScale = ContentScale.Crop
         )
+        Button(onClick = { uploadImage() }, modifier = Modifier.padding(10.dp)) {
+            Text(text = "Upload")
+        }
     }
 }
 
